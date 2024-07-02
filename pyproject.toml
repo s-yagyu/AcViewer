@@ -1,0 +1,27 @@
+# githubからpipでインストールする設定
+# 
+[project]
+name = "AcViewer"
+version = "0.1"
+description = "dat file Viewer"
+readme = "README.md"
+
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+# dynamic = ["dependencies", "optional-dependencies"]
+
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+# dependencies = {file = ["requirements.txt"]}
+
+# optional-dependencies = {dev = { file = ["requirements-dev.txt"] }}
+
+dependencies =  [   "numpy",
+                    "scipy",
+                    "mutplotlib",
+                    "pandas",
+                    "japanize_matplotlib",
+                    "streamlit"
+                ]
