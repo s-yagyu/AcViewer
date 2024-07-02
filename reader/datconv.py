@@ -39,27 +39,44 @@ class AcConv():
         file_name (str): .dat filename
 
     Example : 
+        ```
         file_name = r'./datafile.dat'
         acdata = AcConv(file_name)
-        acdata.convert
+        acdata.convert()
         
         print('metadata')
         print(acdata.metadata)
+        >>> Keys:
+        - original keys
+            "fileType","deadTime","countingTime","powerNumber",
+            "anodeVoltage","step","model","yAxisMaximum","startEnergy",
+            "finishEnergy","flagDifDataGroundLevel","bgCountingRate","measureDate","sampleName",
+            "uvIntensity59","targetUv","nameLightCorrection","sensitivity1","sensitivity2",
+        - Calculation keys (list type)
+            "uvEnergy", "countingCorrection", "photonCorrection", "pyield", "npyield","nayield", "guideline",
+            "countingRate","flGrandLevel","flRegLevel","uvIntensity",
+        - Manual estimation keys
+            'thresholdEnergy','slope','yslice','bg',
+        - file name key
+            'file_name'
+        
+        print(acdata.metadata_wo_calc)
+        >>> Calculation keys are excluded.
         
         print('metadata json-type')
         print(acdata.json)
    
         print('pys data by dataframe type')
-        ##### "uvEnergy", "countingCorrection", "photonCorrection", "yield", "nyield", 
-        #####  "guideline", "countingRate","flGrandLevel","flRegLevel","uvIntensity"
         print(acdata.df)
+        >>>  "uvEnergy", "countingCorrection", "photonCorrection", "yield", "nyield", 
+        >>>  "guideline", "countingRate","flGrandLevel","flRegLevel","uvIntensity"
         
         print("user analysis values")
         print(acdata.estimate_value)
         
         print('export dataframe data to csv')
         acdata.export_df2csv()
-    
+        ```
     
     """
 
@@ -69,33 +86,28 @@ class AcConv():
     def convert(self,json_export=False):
         """
         Attribution
+        - Original metadata keys
+            "fileType","deadTime","countingTime","powerNumber","anodeVoltage",
+            "step","model","yAxisMaximum","startEnergy",
+            "finishEnergy","flagDifDataGroundLevel","bgCountingRate",
+            "measureDate","sampleName",
+            "uvIntensity59","targetUv","nameLightCorrection","sensitivity1","sensitivity2"
+        - Original data coloum keys (Value type is list)
+            "uvEnergy", "countingRate", "flGrandLevel", "flRegLevel","uvIntensity"
+        - calculation keys (Value type is list)
+            "countingCorrection", "photonCorrection", "pyield", "npyield", "nayield", "guideline"
+                pyield: power(1/1), npyield: power(1/n), guidline: manual estimation line
         
-        - original metadata keys
-        
-        "fileType","deadTime","countingTime","powerNumber","anodeVoltage",
-        "step","model","yAxisMaximum","startEnergy",
-        "finishEnergy","flagDifDataGroundLevel","bgCountingRate",
-        "measureDate","sampleName",
-        "uvIntensity59","targetUv","nameLightCorrection","sensitivity1","sensitivity2"
-
-        - original data coloum keys
-        
-        "uvEnergy", "countingRate", "flGrandLevel", "flRegLevel","uvIntensity"
- 
-        - file optional keys
-        
-        "countingCorrection", "photonCorrection", "pyield", "npyield","nayield", "guideline"
-        
-        "estimate_value" include ('thresholdEnergy', 'slope', 'yslice', 'bg')
-        
-        
+        - Manual estimation keys
+            "estimate_value" include ('thresholdEnergy', 'slope', 'yslice', 'bg')
+         
         """
         _ = self._read_para()
         self.countingCorrection = self._count_calibration()
         self.photonCorrection = self._photon_calibration()
         self.ydata, self.npyield = self._pyield_intensity()
         _ = self.user_estimation()
-        
+        # original metadata keys
         meta_keys = ["fileType","deadTime","countingTime","powerNumber",
                       "anodeVoltage","step","model","yAxisMaximum","startEnergy",
                       "finishEnergy","flagDifDataGroundLevel","bgCountingRate","measureDate","sampleName",
@@ -106,6 +118,7 @@ class AcConv():
                       self.finishEnergy,self.flagDifDataGroundLevel, self.bgCountingRate,self.measureDate,self.sampleName,
                       self.uvIntensity59,self.targetUv, self.nameLightCorrection, self.sensitivity1,self.sensitivity2]
         
+        # Original data coloum keys + calculation keys (Value type is list)
         calc_data_keys = ["uvEnergy", "countingCorrection", "photonCorrection", "pyield", "npyield","nayield", "guideline",
                          "countingRate","flGrandLevel","flRegLevel","uvIntensity"]
         
@@ -113,6 +126,7 @@ class AcConv():
                             self.countingRate,self.flGrandLevel,self.flRegLevel,self.uvIntensity]
         calc_data_values_list = [d.tolist() for d in calc_data_values]
         
+        # file name key
         file_meta ={'file_name':self.file_name.name}
         
         self.metadata = dict(zip(meta_keys + calc_data_keys, meta_values + calc_data_values_list)) 
@@ -121,7 +135,7 @@ class AcConv():
         
         self.calcdata = dict(zip(calc_data_keys,calc_data_values))
         
-        # self.metadata_wo_calc means that the calculated data, which is array data, is not included.
+        # self.metadata_wo_calc: the calculated data, which is array data, is not included.
         self.metadata_wo_calc = dict(zip(meta_keys,meta_values)) 
         self.metadata_wo_calc.update(self.estimate_value)
         self.metadata_wo_calc.update(file_meta)
@@ -206,10 +220,10 @@ class AcConv():
 
     def _pyield_intensity(self):
         self.ydata = self.countingCorrection/self.photonCorrection
-        self.npyield = np.power(self.ydata, self.powerNumber)
-        
         # replace Nan to 0
         self.ydata = np.where(self.ydata < 0, 0, self.ydata)
+        
+        self.npyield = np.power(self.ydata, self.powerNumber)
         # replace Nan to 0
         self.npyield[np.isnan(self.npyield)] = 0
 
@@ -290,9 +304,6 @@ class AcConv():
             self.nayield = self.npyield
             self.guideline = np.array([np.nan]*len(self.uvEnergy.tolist()))
 
-            
-    
-
     def _json_out(self, dict_metadata,export=False):
         
         if export:
@@ -305,8 +316,7 @@ class AcConv():
         json_meta = json.dumps(dict_metadata)
         
         return json_meta
-
-        
+    
     def _df_out(self,dict_data):
         
         df_temp = pd.DataFrame(dict_data)
@@ -341,7 +351,7 @@ class AcConv():
 class AdvAcConv(AcConv):
     
     def _xy_convert(self):
-        # Overflowのデータは0になっている。
+        # Overflowのデータは0になっていることから、その部分は削除する。
         def find_first_positive_index(arr):
             """後ろから探索して最初の正の数のインデックスを取得
             Args:
@@ -389,14 +399,13 @@ class AdvAcConv(AcConv):
         return self.bg_flag_ind, self.reg_flag_ind
     
     def user_estimation_23(self, powerN):
-
         """ user analized  threshold value
         
         args:
             powerN (float): 1/n  example: 1/2
 
         Returns:
-            dict[float]: 'thresholdEnergy', 'slope','yslice','bg'
+            dict[float]: 'thresholdEnergy','slope','yslice','bg'
         """
         # self.df_data =  self.convert_df()
         bg_flag_ind = np.where(self.flGrandLevel == -1)[0].tolist()
@@ -442,7 +451,48 @@ class AdvAcConv(AcConv):
 
       
         return {'est_val':estimate_value, 'rex':self.uvEnergy, 'rey':nayield, 'fit':guideline}   
+
+def spike_remove(xdata,ydata):
+        # dat fileでOverflowのデータは0。
+    def find_first_positive_index(arr):
+        """後ろから探索して最初に見つかる正の数のインデックスを取得
+        Args:
+            arr (ndarray): ndarray
+
+        Returns:
+            int: index
+            
+        # テスト用の配列
+        array = np.array([-3, -2, 0, -1, 4, 5, -6])
+        print(len(array))
+        index = find_first_positive_index(array)
+        if index != -1:
+            print("最初の正の数はインデックス", index, "にあります。")
+        else:
+            print("正の数は見つかりませんでした。")
         
+        >>>最初の正の数はインデックス 5 にあります。
+        
+        """
+        for i in range(len(arr)-1, -1, -1):
+            if arr[i] > 0:
+                return i
+        return -1  # 正の数が見つからなかった場合
+    
+    index = find_first_positive_index(ydata)
+    # print(index)
+    if index != len(ydata)-1:
+        xdata = xdata[:index]
+        ydata = ydata[:index]
+
+    # もう一度繰り返す
+    index = find_first_positive_index(ydata)
+    # print(index)
+    if index != len(ydata)-1:
+        xdata = xdata[:index]
+        ydata = ydata[:index]
+        
+    return xdata, ydata         
             
 
 if __name__ =='__main__':
